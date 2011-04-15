@@ -8,7 +8,7 @@ var Schema = mongoose.Schema, ObjectId = Schema.ObjectId;
 // The setup
 app.configure(function () {
   app.set('views', __dirname + '/views');
-  app.set('view engine', 'jade')
+  app.set('view engine', 'jade');
   app.use(express.bodyParser());
   app.use(express.static(__dirname + '/public'));
 });
@@ -24,17 +24,20 @@ mongoose.model('Post', new Schema({
 mongoose.model('Downvote', new Schema({
   post      : { type: ObjectId },
   ip        : { type: String }
-}))
+}));
+
 Post = mongoose.model('Post');
 Downvote = mongoose.model('Downvote');
 
 // Functions
 
 function comparePosts(a,b) {
-  if(a.downVotes < b.downVotes)
+  if(a.downVotes < b.downVotes) {
     return -1;
-  if(a.downVotes > b.downVotes)
+  }
+  if(a.downVotes > b.downVotes) {
     return 1;
+  }
   return 0;
 }
 
@@ -60,7 +63,7 @@ app.post('/submit', function (req, res) {
   post.url = req.body.post.url;
   post.downVotes = 0;
   post.save();
-  res.redirect('/')
+  res.redirect('/');
 });
 
 app.get('/downvote/:id', function (req, res) {
@@ -79,8 +82,9 @@ app.get('/downvote/:id', function (req, res) {
           // p.modified = new Date();
           p.downVotes += 1;
           p.save(function (err) {
-            if (err)
+            if (err) {
               console.log("Save error");
+            }
           });
         }
       });
