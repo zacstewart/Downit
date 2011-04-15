@@ -1,0 +1,12 @@
+h2 Home
+ul.posts
+  - if(posts.length > 0)
+    - for(var i in posts)
+      li.post
+        span.downvotes
+          a(href='/downvote/' + posts[i].id, class="down") &darr;
+          = posts[i].downVotes
+        a(href=posts[i].url)= posts[i].title
+        br
+        small
+          a(href= posts[i].id + '/comments') comments
