@@ -152,4 +152,4 @@ app.get('/:id/comments', function (req, res) {
 
 // Error handling
 app.listen(port);
-console.log('http://localhost:' + port;
+console.log('http://localhost:' + port);
