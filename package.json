@@ -4,6 +4,7 @@
   "dependencies": {
     "express": "2.4.6",
     "mongoose": "2.0.3",
-    "jade": "0.15.2"
+    "jade": "0.15.2",
+    "underscore"
   }
 }

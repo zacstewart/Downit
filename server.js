@@ -1,6 +1,7 @@
 // Modules
 var express = require('express');
 var mongoose = require('mongoose');
+var _ = require('underscore');
 
 // Environment
 var port = process.env.PORT || 4000;
@@ -29,14 +30,6 @@ var DownVote = new Schema({
 });
 mongoose.model('DownVote', DownVote);
 DownVote = mongoose.model('DownVote');
-
-// var Comment = new Schema({
-//   parent_id   : { type: ObjectId },
-//   comment     : { type: String },
-//   comments    : [Comment],
-//   created     : { type: Date, defult: Date.now },
-//   modified    : { type: date, default: Date.now }
-// });
 
 var Post = new Schema({
   ancestors   : [ObjectId],
@@ -144,6 +137,10 @@ app.get('/:id/comments', function (req, res) {
   Post.findById(req.params.id, function (err, parent) {
     if (!err) {
       Post.find({ancestors: parent.id}, function (err, comments) {
+        comments = _.groupBy(comments, function (comment) {
+          return comment.parent;
+        });
+        console.log(comments);
         res.render('comments', {parent: parent, comments: comments});
       });
     } else {

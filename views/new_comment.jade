@@ -1,9 +1,8 @@
-h2= parent.title
 p= parent.comment
-form(method='post')
+form(method='post', action='/' + parent.id + '/comment')
   input(type='hidden', name='post[parent]', value=parent.id)
   label Comment:
   br
-  input(type='textarea', name='post[comment]')
+  textarea(name='post[comment]')
   br
   input(type='submit', value='Submit')

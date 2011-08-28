@@ -1,3 +1,5 @@
 h2= parent.title
-ul.comments
-  - partial('comment', comments);
+!= partial('new_comment', {parent: parent})
+- if (comments[parent.id])
+  ul.comments
+    != partial('comment', {collection: comments[parent.id], comments: comments, i: 0});

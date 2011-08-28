@@ -5,3 +5,6 @@ li.comment
     = comment.created
     \ | 
     a(href='/' + comment.id + '/comment') reply
+  - if (comments[comment.id])
+    ul.comments
+      != partial('comment', {collection: comments[comment.id], comments: comments, i: i+1});
