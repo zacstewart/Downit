@@ -6,6 +6,9 @@ var db = mongoose.connect('mongodb://localhost/downit');
 var Schema = mongoose.Schema, ObjectId = Schema.ObjectId;
 
 // The setup
+
+var port = process.env.PORT || 4000;
+
 app.configure(function () {
   app.set('views', __dirname + '/views');
   app.set('view engine', 'jade');
@@ -148,5 +151,5 @@ app.get('/:id/comments', function (req, res) {
 
 
 // Error handling
-app.listen(4000);
-console.log('http://localhost:4000');
+app.listen(port);
+console.log('http://localhost:' + port;
