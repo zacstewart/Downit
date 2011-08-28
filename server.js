@@ -1,13 +1,16 @@
+// Modules
 var express = require('express');
 var mongoose = require('mongoose');
 
+// Environment
+var port = process.env.PORT || 4000;
+var mongouri = process.env.MONGOHQ_URL || 'mongodb://localhost/downit';
+
 var app = express.createServer();
-var db = mongoose.connect('mongodb://localhost/downit');
+var db = mongoose.connect(mongouri);
 var Schema = mongoose.Schema, ObjectId = Schema.ObjectId;
 
 // The setup
-
-var port = process.env.PORT || 4000;
 
 app.configure(function () {
   app.set('views', __dirname + '/views');
