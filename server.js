@@ -14,20 +14,35 @@ app.configure(function () {
 });
 
 // Models
-mongoose.model('Post', new Schema({
-  title     : { type: String },
-  url       : { type: String },
-  downVotes : { type: Number, default: 0 },
-  created   : { type: Date, default: Date.now }
-}));
 
-mongoose.model('Downvote', new Schema({
-  post      : { type: ObjectId },
-  ip        : { type: String }
-}));
+var DownVote = new Schema({
+  ip        : { type: String },
+  post_id   : { type: ObjectId },
+  created   : { type: Date, default: Date.now },
+  modified  : { type: Date, default: Date.now }
+});
+mongoose.model('DownVote', DownVote);
+DownVote = mongoose.model('DownVote');
 
+// var Comment = new Schema({
+//   parent_id   : { type: ObjectId },
+//   comment     : { type: String },
+//   comments    : [Comment],
+//   created     : { type: Date, defult: Date.now },
+//   modified    : { type: date, default: Date.now }
+// });
+
+var Post = new Schema({
+  ancestors   : [ObjectId],
+  parent      : { type: ObjectId },
+  title       : { type: String },
+  url         : { type: String },
+  comment     : { type: String },
+  downVotes   : { type: Number },
+  created     : { type: Date, default: Date.now }
+});
+mongoose.model('Post', Post);
 Post = mongoose.model('Post');
-Downvote = mongoose.model('Downvote');
 
 // Functions
 
@@ -44,17 +59,17 @@ function comparePosts(a,b) {
 // Routing
 
 app.get('/', function (req, res){
-  Post.find({}).sort('downVotes', 1).sort('created', -1).execFind(function (err, doc) {
+  Post.find({parent: null}).limit(10).sort('downVotes', 1).sort('created', -1).execFind(function (err, doc) {
     if (err) {
       throw err;
     } else {
-      res.render('index', {title: "Home", posts: doc});
+      res.render('index', {title: 'Home', posts: doc});
     }
   });
 });
 
 app.get('/submit', function (req, res) {
-  res.render('submit', {title: "Submit"});
+  res.render('submit', {title: 'Submit'});
 });
 
 app.post('/submit', function (req, res) {
@@ -66,34 +81,72 @@ app.post('/submit', function (req, res) {
   res.redirect('/');
 });
 
-app.get('/downvote/:id', function (req, res) {
-  Downvote.find({post: req.params.id, ip: req.connection.remoteAddress}, function (err, d) {
-    if(d.length > 0) {
+app.get('/:id/downvote', function (req, res) {
+  DownVote.findOne({post_id: req.params.id, ip: req.connection.remoteAddress}, function (err, d) {
+    if(d) {
       console.log(d);
+      d.remove(function (err, whut) {
+        Post.findById(req.params.id, function (err, p) {
+          p.downVotes -= 1;
+          p.save();
+          res.redirect('/');
+        });
+      });
     } else {
-      var downvote = new Downvote();
-      downvote.post = req.params.id;
+      var downvote = new DownVote();
+      downvote.post_id = req.params.id;
       downvote.ip = req.connection.remoteAddress;
-      downvote.save();
-      Post.findById(req.params.id, function (err, p) {
-        if(!p) {
-          return next(new Error('Could not find post'));
-        } else {
-          // p.modified = new Date();
-          p.downVotes += 1;
-          p.save(function (err) {
-            if (err) {
-              console.log("Save error");
-            }
-          });
-        }
+      downvote.save(function () {
+        Post.findById(req.params.id, function (err, p) {
+          if(!p) {
+            return next(new Error('Could not find post'));
+          } else {
+            p.downVotes += 1;
+            p.save(function (err) {
+              if (err) {
+                throw err;
+              } else {
+                res.redirect('/');
+              }
+            });
+          }
+        });
       });
     }
   });
-  res.redirect('/');
 });
 
+app.get('/:id/comment', function (req, res) {
+  Post.findById(req.params.id, function (err, parent) {
+    res.render('new_comment', {parent: parent});
+  });
+});
+
+app.post('/:id/comment', function (req, res) {
+  Post.findById(req.body.post.parent, function (err, parent) {
+    comment = new Post();
+    comment.ancestors = parent.ancestors.concat([parent.id]);
+    comment.parent = req.body.post.parent
+    comment.comment = req.body.post.comment
+    // parent.posts.push(comment);
+    comment.save();
+    res.redirect('/' + comment.parent_id + '/comments');
+  });
+});
+
+app.get('/:id/comments', function (req, res) {
+  Post.findById(req.params.id, function (err, parent) {
+    if (!err) {
+      Post.find({ancestors: parent.id}, function (err, comments) {
+        res.render('comments', {parent: parent, comments: comments});
+      });
+    } else {
+      throw err;
+    }
+  });
+});
+
+
 // Error handling
-
-
-app.listen(3000);
+app.listen(4000);
+console.log('http://localhost:4000');

@@ -4,9 +4,9 @@ ul.posts
     - for(var i in posts)
       li.post
         span.downvotes
-          a(href='/downvote/' + posts[i].id, class="down") &darr;
+          a(href=posts[i].id + '/downvote', class="down") &darr;
           = posts[i].downVotes
         a(href=posts[i].url)= posts[i].title
         br
         small
-          a(href= posts[i].id + '/comments') comments
+          a(href=posts[i].id + '/comments') comments

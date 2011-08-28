@@ -1,0 +1,9 @@
+h2= parent.title
+p= parent.comment
+form(method='post')
+  input(type='hidden', name='post[parent]', value=parent.id)
+  label Comment:
+  br
+  input(type='textarea', name='post[comment]')
+  br
+  input(type='submit', value='Submit')
