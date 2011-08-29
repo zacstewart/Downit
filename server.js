@@ -2,10 +2,12 @@
 var express = require('express');
 var mongoose = require('mongoose');
 var _ = require('underscore');
+var relativeDate = require('relative-date');
 
 // Environment
 var port = process.env.PORT || 4000;
 var mongouri = process.env.MONGOHQ_URL || 'mongodb://localhost/downit';
+var sess_secret = process.env.SESSION_SECRET || 'am I a cat yet?';
 
 var app = express.createServer();
 var db = mongoose.connect(mongouri);
@@ -18,12 +20,23 @@ app.configure(function () {
   app.set('view engine', 'jade');
   app.use(express.bodyParser());
   app.use(express.static(__dirname + '/public'));
+  app.use(express.cookieParser());
+  app.use(express.session({ secret: sess_secret }));
 });
 
 // Models
 
+var User = new Schema({
+  name      : { type: String, default: 'Anonymous' },
+  email     : { type: String, default: null },
+  pass_hash : { type: String, default: null },
+  created   : { type: Date, default: Date.now }
+});
+mongoose.model('User', User);
+User = mongoose.model('User');
+
 var DownVote = new Schema({
-  ip        : { type: String },
+  user      : { type: ObjectId },
   post_id   : { type: ObjectId },
   created   : { type: Date, default: Date.now },
   modified  : { type: Date, default: Date.now }
@@ -33,68 +46,135 @@ DownVote = mongoose.model('DownVote');
 
 var Post = new Schema({
   ancestors   : [ObjectId],
+  user        : { type: ObjectId },
   parent      : { type: ObjectId },
   title       : { type: String },
   url         : { type: String },
   comment     : { type: String },
-  downVotes   : { type: Number },
+  downVotes   : { type: Number, default: 0 },
   created     : { type: Date, default: Date.now }
 });
 mongoose.model('Post', Post);
 Post = mongoose.model('Post');
 
-// Functions
+// Helpers
 
-function comparePosts(a,b) {
-  if(a.downVotes < b.downVotes) {
-    return -1;
+var newUser = function () {
+  var user;
+  user = new User();
+  user.save();
+  console.log('newUser');
+  console.log(user);
+  return user;
+};
+
+// Helpers
+
+app.helpers({
+  relativeDate: function (date) {
+    return relativeDate(date);
+  },
+  // Don't want this to be asynch :(
+  userName: function (user) {
+    var name;
+    User.findById(user, function (err, user) {
+      if (!err) {
+        console.log(user);
+        return user.name;
+      } else {
+        throw err;
+      }
+    });
   }
-  if(a.downVotes > b.downVotes) {
-    return 1;
-  }
-  return 0;
-}
+});
 
 // Routing
 
 app.get('/', function (req, res){
-  Post.find({parent: null}).limit(10).sort('downVotes', 1).sort('created', -1).execFind(function (err, doc) {
+  var user;
+
+  if (req.session.user_id) {
+    user = User.findById(req.session.user_id);
+  } else {
+    user = req.session.user_id = newUser();
+  }
+
+  Post.find({parent: null}).limit(10).sort('downVotes', 1).sort('created', -1).execFind(function (err, posts) {
     if (err) {
       throw err;
     } else {
-      res.render('index', {title: 'Home', posts: doc});
+      res.render('index', {title: 'Home', user: user, posts: posts});
     }
   });
 });
 
 app.get('/submit', function (req, res) {
-  res.render('submit', {title: 'Submit'});
+  var user;
+
+  if (req.session.user_id) {
+    user = User.findById(req.session.user_id);
+  } else {
+    user = req.session.user_id = newUser();
+  }
+
+  res.render('submit', {title: 'Submit', user: user});
 });
 
-app.post('/submit', function (req, res) {
-  var post = new Post();
-  post.title = req.body.post.title;
-  post.url = req.body.post.url;
-  post.downVotes = 0;
-  post.save();
-  res.redirect('/');
+app.post('/post', function (req, res) {
+  var post = new Post(),
+   user = {};
+
+  if (req.session.user_id) {
+    user = req.session.user_id;
+  } else {
+    user = req.session.user_id = newUser().id;
+  }
+
+  console.log(user);
+
+  if (req.body.post.parent) {
+    Post.findById(req.body.post.parent, function (err, parent) {
+      post.user = user.id,
+      post.ancestors = parent.ancestors.concat([parent.id]);
+      post.parent = req.body.post.parent
+      post.comment = req.body.post.comment
+      post.save();
+      res.redirect('/' + parent.id + '/comments');
+    });
+  } else if (req.body.post.url) {
+    post.user = user.id,
+    post.title = req.body.post.title;
+    post.url = req.body.post.url;
+    post.downVotes = 0;
+    post.save();
+    res.redirect('/');
+  }
 });
 
 app.get('/:id/downvote', function (req, res) {
-  DownVote.findOne({post_id: req.params.id, ip: req.connection.remoteAddress}, function (err, d) {
+  var user = {};
+
+  if (req.session.user_id) {
+    user = req.session.user_id;
+  } else {
+    user = req.session.user_id = newUser().id;
+  }
+
+  console.log(user);
+
+  DownVote.findOne({post_id: req.params.id, user: user.id}, function (err, d) {
     if(d) {
-      console.log(d);
-      d.remove(function (err, whut) {
+      d.remove(function (err) {
         Post.findById(req.params.id, function (err, p) {
           p.downVotes -= 1;
           p.save();
-          res.redirect('/');
+          res.redirect('back');
         });
       });
     } else {
       var downvote = new DownVote();
+      downvote.user = user.id;
       downvote.post_id = req.params.id;
-      downvote.ip = req.connection.remoteAddress;
       downvote.save(function () {
         Post.findById(req.params.id, function (err, p) {
           if(!p) {
@@ -105,7 +185,7 @@ app.get('/:id/downvote', function (req, res) {
               if (err) {
                 throw err;
               } else {
-                res.redirect('/');
+                res.redirect('back');
               }
             });
           }
@@ -116,36 +196,53 @@ app.get('/:id/downvote', function (req, res) {
 });
 
 app.get('/:id/comment', function (req, res) {
-  Post.findById(req.params.id, function (err, parent) {
-    res.render('new_comment', {parent: parent});
-  });
-});
+  var user;
 
-app.post('/:id/comment', function (req, res) {
-  Post.findById(req.body.post.parent, function (err, parent) {
-    comment = new Post();
-    comment.ancestors = parent.ancestors.concat([parent.id]);
-    comment.parent = req.body.post.parent
-    comment.comment = req.body.post.comment
-    // parent.posts.push(comment);
-    comment.save();
-    res.redirect('/' + comment.parent_id + '/comments');
+  if (req.session.user_id) {
+    user = User.findById(req.session.user_id);
+  } else {
+    user = req.session.user_id = newUser();
+  }
+
+  Post.findById(req.params.id, function (err, parent) {
+    res.render('new_comment', {user: user, parent: parent});
   });
 });
 
 app.get('/:id/comments', function (req, res) {
+  var user;
+
+  if (req.session.user_id) {
+    user = req.session.user_id;
+  } else {
+    user = req.session.user_id = newUser().id;
+  }
+
   Post.findById(req.params.id, function (err, parent) {
     if (!err) {
-      Post.find({ancestors: parent.id}, function (err, comments) {
+      Post.find({ancestors: parent.id}).sort('downVotes', 1).sort('created', -1).execFind(function (err, comments) {
         comments = _.groupBy(comments, function (comment) {
           return comment.parent;
         });
-        console.log(comments);
         res.render('comments', {parent: parent, comments: comments});
       });
     } else {
       throw err;
     }
+  });
+});
+
+app.get('/my/posts', function (req, res) {
+  var user;
+
+  if (req.session.user_id) {
+    user = req.session.user_id;
+  } else {
+    user = req.session.user_id = newUser().id;
+  }
+
+  Post.find({user: user.id}, function (err, posts) {
+    res.render('index', {title: 'My Posts', user: user, posts: posts});
   });
 });
 

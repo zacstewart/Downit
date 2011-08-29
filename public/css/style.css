@@ -16,6 +16,13 @@ li.post {
   margin-bottom: 10px;
 }
 
+ul.comments {
+ border-left: 1px solid #ddd;
+  list-style: none;
+  margin: 0 0 0 12px;
+  padding: 0 0 0 12px;
+}
+
 span.downvotes {
   font-size: 24px;
   float: left;

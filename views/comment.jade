@@ -1,8 +1,11 @@
 li.comment
-  = comment.comment
+  span.downvotes
+    a(href='/' + comment.id + '/downvote', class="down") &darr;
+    = comment.downVotes
+  p= comment.comment
   br
   small
-    = comment.created
+    \ submitted #{relativeDate(comment.created)}
     \ | 
     a(href='/' + comment.id + '/comment') reply
   - if (comments[comment.id])
