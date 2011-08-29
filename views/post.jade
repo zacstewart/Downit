@@ -1,0 +1,10 @@
+li.post
+  span.downvotes
+    a(href='/' + post.id + '/downvote', class="down") &darr;
+    = post.downVotes
+  a(href=post.url)= post.title
+  br
+  small
+    \ submitted #{relativeDate(post.created)}
+    \ | 
+    a(href=post.id + '/comments') comments
